@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel - Online Grocery</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 220px;
+            background-color: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding-top: 20px;
+        }
+        .sidebar button {
+            background: none;
+            border: none;
+            color: white;
+            text-align: left;
+            padding: 15px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #34495e;
+        }
+        .sidebar button:hover {
+            background-color: #34495e;
+        }
+        .content {
+            flex-grow: 1;
+            background-color: #f5f7fa;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #aaa;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        button.primary {
+            background-color: #27ae60;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button.primary:hover {
+            background-color: #219150;
+        }
+        input, textarea {
+            width: 300px;
+            margin: 10px 0;
+            padding: 8px;
+            display: block;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <button onclick="showPage('dashboard')">Dashboard</button>
+    <button onclick="showPage('products')">CRUD Products</button>
+    <button onclick="showPage('orders')">Manage/View Orders</button>
+    <button onclick="showPage('admins')">Add New Admin</button>
+</div>
+
+<div class="content">
+    <!-- DASHBOARD -->
+    <div id="dashboard">
+        <h2>Admin Dashboard</h2>
+        <p>Manage all products below:</p>
+        <table>
+            <thead>
+                <tr style="background-color: #f0f0f0;">
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Price (₹)</th>
+                    <th>Stock</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="productTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- CRUD PRODUCTS -->
+    <div id="products" class="hidden">
+        <h2 id="formTitle">Add Product</h2>
+        <input type="hidden" id="editProductId">
+        <input type="text" id="prodName" placeholder="Product Name">
+        <input type="text" id="prodCategory" placeholder="Category">
+        <input type="number" id="prodPrice" placeholder="Price">
+        <input type="number" id="prodStock" placeholder="Stock Quantity">
+        <button class="primary" onclick="submitProduct()">Submit</button>
+        <button class="primary hidden" id="cancelEditBtn" onclick="cancelEdit()">Cancel Edit</button>
+    </div>
+
+    <!-- MANAGE ORDERS -->
+    <div id="orders" class="hidden">
+        <h2>Manage/View Orders</h2>
+        <table>
+            <thead>
+                <tr style="background-color: #f0f0f0;">
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Total (₹)</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>101</td><td>John Doe</td><td>Pending</td><td>450</td><td><button>View</button></td></tr>
+                <tr><td>102</td><td>Alice</td><td>Delivered</td><td>1200</td><td><button>View</button></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ADD NEW ADMIN -->
+    <div id="admins" class="hidden">
+        <h2>Add New Admin</h2>
+        <input type="text" id="newAdminUsername" placeholder="Username">
+        <input type="password" id="newAdminPassword" placeholder="Password">
+        <button class="primary" onclick="addAdmin()">Add Admin</button>
+        <h3>Existing Admins</h3>
+        <ul id="adminList">
+            <li>admin (superadmin)</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    const role = localStorage.getItem('role');
+    if (role !== 'admin') {
+        alert('Access Denied! Admins only.');
+        window.location.href = 'login.html';
+    }
+
+    const sampleProducts = [
+        { id: 1, name: 'Apple', category: 'Fruits', price: 120, stock: 30 },
+        { id: 2, name: 'Tomato', category: 'Vegetables', price: 30, stock: 100 },
+        { id: 3, name: 'Milk', category: 'Dairy', price: 50, stock: 60 }
+    ];
+
+    function showPage(pageId) {
+        ['dashboard', 'products', 'orders', 'admins'].forEach(id => {
+            document.getElementById(id).classList.toggle('hidden', id !== pageId);
+        });
+        if (pageId === 'dashboard') loadProducts();
+    }
+
+    function loadProducts() {
+        const tableBody = document.getElementById('productTableBody');
+        tableBody.innerHTML = '';
+
+        sampleProducts.forEach(product => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${product.id}</td>
+                <td>${product.name}</td>
+                <td>${product.category}</td>
+                <td>${product.price}</td>
+                <td>${product.stock}</td>
+                <td>
+                    <button onclick="startEdit(${product.id})">Edit</button>
+                    <button onclick="deleteProduct(${product.id})">Delete</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function submitProduct() {
+        const idInput = document.getElementById('editProductId').value;
+        const name = document.getElementById('prodName').value.trim();
+        const category = document.getElementById('prodCategory').value.trim();
+        const price = parseFloat(document.getElementById('prodPrice').value);
+        const stock = parseInt(document.getElementById('prodStock').value);
+
+        if (!name || !category || isNaN(price) || isNaN(stock)) {
+            alert('Please fill all product fields correctly.');
+            return;
+        }
+
+        if (idInput) {
+            // Edit existing product
+            const index = sampleProducts.findIndex(p => p.id == idInput);
+            if (index !== -1) {
+                sampleProducts[index].name = name;
+                sampleProducts[index].category = category;
+                sampleProducts[index].price = price;
+                sampleProducts[index].stock = stock;
+                alert('Product updated!');
+            }
+        } else {
+            // Add new product
+            const newId = sampleProducts.length ? sampleProducts[sampleProducts.length - 1].id + 1 : 1;
+            sampleProducts.push({ id: newId, name, category, price, stock });
+            alert('Product added!');
+        }
+
+        clearForm();
+        loadProducts();
+        showPage('dashboard');
+    }
+
+    function deleteProduct(id) {
+        const index = sampleProducts.findIndex(p => p.id === id);
+        if (index !== -1) {
+            sampleProducts.splice(index, 1);
+            loadProducts();
+            alert('Product deleted.');
+        }
+    }
+
+    function startEdit(id) {
+        const product = sampleProducts.find(p => p.id === id);
+        if (product) {
+            document.getElementById('formTitle').textContent = 'Edit Product';
+            document.getElementById('editProductId').value = product.id;
+            document.getElementById('prodName').value = product.name;
+            document.getElementById('prodCategory').value = product.category;
+            document.getElementById('prodPrice').value = product.price;
+            document.getElementById('prodStock').value = product.stock;
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+            showPage('products');
+        }
+    }
+
+    function cancelEdit() {
+        clearForm();
+        showPage('dashboard');
+    }
+
+    function clearForm() {
+        document.getElementById('formTitle').textContent = 'Add Product';
+        document.getElementById('editProductId').value = '';
+        document.getElementById('prodName').value = '';
+        document.getElementById('prodCategory').value = '';
+        document.getElementById('prodPrice').value = '';
+        document.getElementById('prodStock').value = '';
+        document.getElementById('cancelEditBtn').classList.add('hidden');
+    }
+
+    function addAdmin() {
+        const username = document.getElementById('newAdminUsername').value.trim();
+        const password = document.getElementById('newAdminPassword').value.trim();
+
+        if (username && password) {
+            const list = document.getElementById('adminList');
+            const newAdmin = document.createElement('li');
+            newAdmin.textContent = username;
+            list.appendChild(newAdmin);
+
+            alert('New admin added!');
+            document.getElementById('newAdminUsername').value = '';
+            document.getElementById('newAdminPassword').value = '';
+        } else {
+            alert('Please enter both username and password.');
+        }
+    }
+
+    loadProducts();
+</script>
+
+</body>
+</html>
