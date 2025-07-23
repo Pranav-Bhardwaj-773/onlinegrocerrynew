@@ -91,17 +91,26 @@
         function login() {
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
-    
+            let role = '';
             if (username === 'admin' && password === 'admin123') {
                 alert('Admin login successful!');
+                role = 'admin';
                 localStorage.setItem('role', 'admin');
                 window.location.href = 'admin.html';
             } else if (username !== '' && password !== '') {
                 alert('User login successful!');
+                role = 'customer';
                 localStorage.setItem('role', 'customer');
                 window.location.href = 'homepage.html';
             } else {
                 alert('Please enter valid credentials.');
+                return;
+            }
+            // Track login history
+            if (role) {
+                const userLogins = JSON.parse(localStorage.getItem('userLogins') || '[]');
+                userLogins.push({ username, role, timestamp: new Date().toLocaleString() });
+                localStorage.setItem('userLogins', JSON.stringify(userLogins));
             }
         }
     

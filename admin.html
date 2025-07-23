@@ -78,6 +78,7 @@
     <button onclick="showPage('products')">CRUD Products</button>
     <button onclick="showPage('orders')">Manage/View Orders</button>
     <button onclick="showPage('admins')">Add New Admin</button>
+    <button onclick="toggleUserHistory()" id="userHistoryBtn">User History</button>
 </div>
 
 <div class="content">
@@ -143,6 +144,21 @@
             <li>admin (superadmin)</li>
         </ul>
     </div>
+
+    <!-- USER HISTORY COLLAPSIBLE SECTION -->
+    <div id="userHistorySection" class="hidden" style="margin:20px 0;">
+        <h2>User & Admin Login History</h2>
+        <table>
+            <thead>
+                <tr style="background-color: #f0f0f0;">
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Login Time</th>
+                </tr>
+            </thead>
+            <tbody id="userHistoryTableBody"></tbody>
+        </table>
+    </div>
 </div>
 
 <script>
@@ -152,24 +168,66 @@
         window.location.href = 'login.html';
     }
 
-    const sampleProducts = [
-        { id: 1, name: 'Apple', category: 'Fruits', price: 120, stock: 30 },
-        { id: 2, name: 'Tomato', category: 'Vegetables', price: 30, stock: 100 },
-        { id: 3, name: 'Milk', category: 'Dairy', price: 50, stock: 60 }
+    // --- DUMMY DATA FOR FRONTEND VISUALS ---
+    // Uncomment the following block to use dummy data instead of backend during development
+    /*
+    const dummyProducts = [
+      { id: 1, name: 'Apple', category: 'Fruits', price: 120, stock: 30 },
+      { id: 2, name: 'Tomato', category: 'Vegetables', price: 30, stock: 100 },
+      { id: 3, name: 'Milk', category: 'Dairy', price: 50, stock: 60 }
     ];
+    const dummyUserLogins = [
+      { username: 'admin', role: 'admin', timestamp: '2024-06-01 10:00:00' },
+      { username: 'user1', role: 'customer', timestamp: '2024-06-01 11:00:00' }
+    ];
+    async function fetchProducts() {
+      products = dummyProducts;
+      loadProducts();
+    }
+    async function fetchUserLogins() {
+      userLogins = dummyUserLogins;
+    }
+    */
+
+    // --- Backend Integration: Fetch products and user logins dynamically ---
+    // Backend developer: Replace '/api/products' and '/api/userLogins' with your actual endpoints.
+    // The endpoints should return arrays of objects as described below.
+    let products = [];
+    let userLogins = [];
+
+    async function fetchProducts() {
+        try {
+            const res = await fetch('/api/products'); // <-- Backend: update endpoint as needed
+            products = await res.json();
+            loadProducts();
+        } catch (err) {
+            document.getElementById('productTableBody').innerHTML = '<tr><td colspan="6" style="color:red">Failed to load products.</td></tr>';
+        }
+    }
+    async function fetchUserLogins() {
+        try {
+            const res = await fetch('/api/userLogins'); // <-- Backend: update endpoint as needed
+            userLogins = await res.json();
+        } catch (err) {
+            userLogins = [];
+        }
+    }
 
     function showPage(pageId) {
         ['dashboard', 'products', 'orders', 'admins'].forEach(id => {
             document.getElementById(id).classList.toggle('hidden', id !== pageId);
         });
-        if (pageId === 'dashboard') loadProducts();
+        if (pageId === 'dashboard') fetchProducts();
     }
 
     function loadProducts() {
         const tableBody = document.getElementById('productTableBody');
         tableBody.innerHTML = '';
-
-        sampleProducts.forEach(product => {
+        if (!products.length) {
+            tableBody.innerHTML = '<tr><td colspan="6">No products found.</td></tr>';
+            return;
+        }
+        products.forEach(product => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${product.id}</td>
@@ -186,7 +244,8 @@
         });
     }
 
-    function submitProduct() {
+    // --- CRUD actions: Backend developer, connect these to your API ---
+    async function submitProduct() {
         const idInput = document.getElementById('editProductId').value;
         const name = document.getElementById('prodName').value.trim();
         const category = document.getElementById('prodCategory').value.trim();
@@ -200,37 +259,37 @@
 
         if (idInput) {
             // Edit existing product
-            const index = sampleProducts.findIndex(p => p.id == idInput);
-            if (index !== -1) {
-                sampleProducts[index].name = name;
-                sampleProducts[index].category = category;
-                sampleProducts[index].price = price;
-                sampleProducts[index].stock = stock;
-                alert('Product updated!');
-            }
+            // Backend developer: Replace with PUT/PATCH request
+            await fetch(`/api/products/${idInput}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, category, price, stock })
+            });
+            alert('Product updated!');
         } else {
             // Add new product
-            const newId = sampleProducts.length ? sampleProducts[sampleProducts.length - 1].id + 1 : 1;
-            sampleProducts.push({ id: newId, name, category, price, stock });
+            // Backend developer: Replace with POST request
+            await fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, category, price, stock })
+            });
             alert('Product added!');
         }
-
         clearForm();
-        loadProducts();
+        fetchProducts();
         showPage('dashboard');
     }
 
-    function deleteProduct(id) {
-        const index = sampleProducts.findIndex(p => p.id === id);
-        if (index !== -1) {
-            sampleProducts.splice(index, 1);
-            loadProducts();
-            alert('Product deleted.');
-        }
+    async function deleteProduct(id) {
+        // Backend developer: Replace with DELETE request
+        await fetch(`/api/products/${id}`, { method: 'DELETE' });
+        fetchProducts();
+        alert('Product deleted.');
     }
 
     function startEdit(id) {
-        const product = sampleProducts.find(p => p.id === id);
+        const product = products.find(p => p.id === id);
         if (product) {
             document.getElementById('formTitle').textContent = 'Edit Product';
             document.getElementById('editProductId').value = product.id;
@@ -258,25 +317,52 @@
         document.getElementById('cancelEditBtn').classList.add('hidden');
     }
 
-    function addAdmin() {
+    // --- Add Admin: Backend developer, connect to your API ---
+    async function addAdmin() {
         const username = document.getElementById('newAdminUsername').value.trim();
         const password = document.getElementById('newAdminPassword').value.trim();
 
         if (username && password) {
-            const list = document.getElementById('adminList');
-            const newAdmin = document.createElement('li');
-            newAdmin.textContent = username;
-            list.appendChild(newAdmin);
-
+            // Backend developer: Replace with POST request
+            await fetch('/api/admins', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
             alert('New admin added!');
             document.getElementById('newAdminUsername').value = '';
             document.getElementById('newAdminPassword').value = '';
+            // Optionally, refresh admin list here
         } else {
             alert('Please enter both username and password.');
         }
     }
 
-    loadProducts();
+    // --- User History Section ---
+    async function toggleUserHistory() {
+        const section = document.getElementById('userHistorySection');
+        section.classList.toggle('hidden');
+        if (!section.classList.contains('hidden')) {
+            await fetchUserLogins();
+            renderUserHistory();
+        }
+    }
+    function renderUserHistory() {
+        const tableBody = document.getElementById('userHistoryTableBody');
+        tableBody.innerHTML = '';
+        if (!userLogins.length) {
+            tableBody.innerHTML = '<tr><td colspan="3">No login history found.</td></tr>';
+            return;
+        }
+        userLogins.slice().reverse().forEach(log => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${log.username}</td><td>${log.role}</td><td>${log.timestamp}</td>`;
+            tableBody.appendChild(row);
+        });
+    }
+
+    // --- Initial load ---
+    fetchProducts();
 </script>
 
 </body>

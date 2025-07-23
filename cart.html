@@ -795,11 +795,11 @@
     <!-- Header -->
     <header class="header">
         <nav class="nav-container">
-            <a href="index.html" class="logo">🛒 FreshMart</a>
+            <a href="./index.html" class="logo">🛒 FreshMart</a>
             <div class="nav-links">
-                <a href="index.html">Home</a>
-                <a href="cart.html">Cart</a>
-                <a href="#" class="btn btn-secondary">Login</a>
+                <a href="./index.html">Home</a>
+                <a href="./cart.html">Cart</a>
+                <a href="login.html" class="btn btn-secondary">Login</a>
             </div>
             <div class="hamburger" id="hamburger">
                 <span></span>
@@ -912,33 +912,76 @@
     </div>
 
     <script>
-        // --- Cart from localStorage ---
-        let cartData = {};
+    // --- DUMMY DATA FOR FRONTEND VISUALS ---
+    // Uncomment the following block to use dummy data instead of backend during development
+    /*
+    const dummyCart = [
+      { name: "Tomato", price: 30, img: "https://img.icons8.com/color/96/000000/tomato.png", quantity: 2 },
+      { name: "Apple", price: 120, img: "https://img.icons8.com/color/96/000000/apple.png", quantity: 1 }
+    ];
+    async function fetchCart() {
+      return dummyCart;
+    }
+    async function updateCartItem(name, quantity) {
+      const item = dummyCart.find(i => i.name === name);
+      if (item) item.quantity = quantity;
+    }
+    async function removeCartItem(name) {
+      const idx = dummyCart.findIndex(i => i.name === name);
+      if (idx !== -1) dummyCart.splice(idx, 1);
+    }
+    */
+        // --- Backend Integration: Cart ---
+        // Backend developer: Implement the following endpoints:
+        //   GET    /api/cart                -> returns array of cart items: [{ name, price, img, quantity }]
+        //   PUT    /api/cart                -> body: { name, quantity } to update quantity
+        //   DELETE /api/cart/:name          -> removes item by name (URL-encoded)
+        // The backend should associate the cart with the current user (via session, token, etc.)
 
-        function getCart() {
-            return JSON.parse(localStorage.getItem('cart') || '{}');
+        // Fetch cart from backend
+        async function fetchCart() {
+            // Backend: Return array of cart items for the current user
+            // Example response: [{ name: 'Tomato', price: 30, img: '...', quantity: 2 }, ...]
+            const res = await fetch('/api/cart'); // <-- Backend: update endpoint as needed
+            return await res.json();
         }
-        function setCart(cart) {
-            localStorage.setItem('cart', JSON.stringify(cart));
+
+        // Update cart item quantity
+        async function updateCartItem(name, quantity) {
+            // Backend: Update the quantity of a cart item for the current user
+            // Request body: { name, quantity }
+            await fetch('/api/cart', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, quantity })
+            });
         }
-        function renderCart() {
-            cartData = getCart();
+
+        // Remove cart item
+        async function removeCartItem(name) {
+            // Backend: Remove the cart item with the given name for the current user
+            await fetch(`/api/cart/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        }
+
+        // Render cart using fetched data
+        async function renderCart() {
+            // Fetch cart items from backend and render them in the DOM
+            const cartData = await fetchCart();
             const cartItemsDiv = document.getElementById('cartItems');
             cartItemsDiv.innerHTML = '';
-            const keys = Object.keys(cartData);
-            if (keys.length === 0) {
+            if (!cartData || cartData.length === 0) {
                 cartItemsDiv.innerHTML = `<div class="empty-cart"><div class="empty-cart-icon">🛒</div><h3>Your cart is empty</h3><p>Add some products from the shop!</p></div>`;
                 document.querySelector('.section-header span').textContent = `🛒 Your Cart (0 items)`;
-                document.getElementById('subtotal').textContent = `$0.00`;
-                document.getElementById('tax').textContent = `$0.00`;
-                document.getElementById('total').textContent = `$0.00`;
+                document.getElementById('subtotal').textContent = `₹0.00`;
+                document.getElementById('tax').textContent = `₹0.00`;
+                document.getElementById('total').textContent = `₹0.00`;
                 return;
             }
             let idx = 0;
-            for (const [name, item] of Object.entries(cartData)) {
+            for (const item of cartData) {
                 idx++;
                 const id = idx;
-                const imgHtml = item.img ? `<img src="${item.img}" alt="${name}" style="width:60px;height:60px;border-radius:8px;background:#f8f9fa;object-fit:contain;">` : `<div class="item-image">🛒</div>`;
+                const imgHtml = item.img ? `<img src="${item.img}" alt="${item.name}" style="width:60px;height:60px;border-radius:8px;background:#f8f9fa;object-fit:contain;">` : `<div class="item-image">🛒</div>`;
                 cartItemsDiv.innerHTML += `
                 <div class="cart-item" data-id="${id}">
                     <div class="item-image">${imgHtml}</div>
@@ -948,38 +991,43 @@
                     </div>
                     <div class="item-controls">
                         <div class="quantity-controls">
-                            <button class="quantity-btn" onclick="updateQuantity('${name}', -1)">-</button>
+                            <button class="quantity-btn" onclick="updateQuantity('${item.name}', -1)">-</button>
                             <span class="quantity-display" id="qty-${id}">${item.quantity}</span>
-                            <button class="quantity-btn" onclick="updateQuantity('${name}', 1)">+</button>
+                            <button class="quantity-btn" onclick="updateQuantity('${item.name}', 1)">+</button>
                         </div>
                         <div class="item-total" id="total-${id}">₹${(item.price * item.quantity).toFixed(2)}</div>
-                        <button class="remove-btn" onclick="removeItem('${name}')">Remove</button>
+                        <button class="remove-btn" onclick="removeItem('${item.name}')">Remove</button>
                     </div>
                 </div>`;
             }
-            document.querySelector('.section-header span').textContent = `🛒 Your Cart (${keys.length} items)`;
-            calculateTotal();
+            document.querySelector('.section-header span').textContent = `🛒 Your Cart (${cartData.length} items)`;
+            calculateTotal(cartData);
         }
 
-        function updateQuantity(name, change) {
-            cartData = getCart();
-            if (!cartData[name]) return;
-            const newQty = cartData[name].quantity + change;
+        // Update quantity handler
+        async function updateQuantity(name, change) {
+            // Fetch current cart, find item, and update its quantity via backend
+            const cartData = await fetchCart();
+            const item = cartData.find(i => i.name === name);
+            if (!item) return;
+            const newQty = item.quantity + change;
             if (newQty < 1) return;
-            cartData[name].quantity = newQty;
-            setCart(cartData);
+            await updateCartItem(name, newQty); // Backend: update quantity
             renderCart();
         }
-        function removeItem(name) {
-            cartData = getCart();
-            delete cartData[name];
-            setCart(cartData);
+
+        // Remove item handler
+        async function removeItem(name) {
+            // Backend: remove item from cart
+            await removeCartItem(name);
             renderCart();
         }
-        function calculateTotal() {
-            cartData = getCart();
+
+        // Calculate totals
+        function calculateTotal(cartData) {
+            // Calculate subtotal, tax, delivery, and total from cartData
             let subtotal = 0;
-            Object.values(cartData).forEach(item => {
+            cartData.forEach(item => {
                 subtotal += item.price * item.quantity;
             });
             const tax = subtotal * 0.08;
@@ -989,42 +1037,40 @@
             document.getElementById('tax').textContent = `₹${tax.toFixed(2)}`;
             document.getElementById('total').textContent = `₹${total.toFixed(2)}`;
         }
+
         document.addEventListener('DOMContentLoaded', function() {
+            // On page load, fetch and render cart from backend
             renderCart();
         });
 
-        // Delivery options
+        // Delivery options (unchanged)
         let deliveryOptions = {
             standard: 2.99,
             express: 5.99
         };
-
         let selectedDelivery = 'standard';
         let discount = 0;
 
-        // Select delivery option
         function selectDelivery(type) {
+            // Update selected delivery type and re-render cart totals
             selectedDelivery = type;
             document.querySelectorAll('.delivery-option').forEach(option => {
                 option.classList.remove('selected');
             });
-            
             document.querySelector(`.delivery-option[onclick="selectDelivery('${type}')"]`).classList.add('selected');
-            
             document.getElementById('delivery-cost').textContent = `$${deliveryOptions[type].toFixed(2)}`;
-            calculateTotal();
+            renderCart();
         }
 
-        // Apply promo code
         function applyPromo() {
+            // Apply promo code and re-render cart totals
             const promoInput = document.getElementById('promoInput');
             const code = promoInput.value.trim();
-            
             if (code === "FRESH10") {
                 discount = 10;
                 document.getElementById('discount').textContent = `-$${discount.toFixed(2)}`;
                 promoInput.style.borderColor = '#28a745';
-                calculateTotal();
+                renderCart();
             } else {
                 discount = 0;
                 document.getElementById('discount').textContent = '-$0.00';
@@ -1032,19 +1078,13 @@
             }
         }
 
-        // Update cart count
-        function updateCartCount() {
-            const itemCount = Object.keys(cartData).length;
-            document.querySelector('.section-header span').textContent = `🛒 Your Cart (${itemCount} items)`;
-        }
-
-        // Checkout function
+        // Checkout function (unchanged)
         function checkout() {
+            // Simulate checkout process
             const btn = document.querySelector('.btn-success');
             btn.textContent = 'Processing...';
             btn.classList.remove('checkout-pulse');
             btn.disabled = true;
-            
             setTimeout(() => {
                 alert('Order placed successfully! Thank you for your purchase.');
                 btn.textContent = 'Proceed to Checkout';
@@ -1053,30 +1093,24 @@
             }, 1500);
         }
 
-        // Mobile menu functionality
+        // Mobile menu functionality (unchanged)
         document.addEventListener('DOMContentLoaded', function() {
             const hamburger = document.getElementById('hamburger');
             const mobileMenu = document.getElementById('mobileMenu');
             const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
             const closeMobileMenu = document.getElementById('closeMobileMenu');
-
-            // Toggle mobile menu
             hamburger.addEventListener('click', function() {
                 hamburger.classList.toggle('active');
                 mobileMenu.classList.toggle('active');
                 mobileMenuOverlay.classList.toggle('active');
                 document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
             });
-
-            // Close mobile menu when clicking close button
             closeMobileMenu.addEventListener('click', function() {
                 hamburger.classList.remove('active');
                 mobileMenu.classList.remove('active');
                 mobileMenuOverlay.classList.remove('active');
                 document.body.style.overflow = '';
             });
-
-            // Close mobile menu when clicking overlay
             mobileMenuOverlay.addEventListener('click', function() {
                 hamburger.classList.remove('active');
                 mobileMenu.classList.remove('active');
